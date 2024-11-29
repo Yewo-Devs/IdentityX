@@ -1,4 +1,5 @@
-﻿using IdentityX.Infrastructure.Services;
+﻿using IdentityX.Application.Interfaces;
+using IdentityX.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -26,7 +27,9 @@ namespace IdentityX.Application.Extensions
 					};
 				});
 
-			services.AddScoped<TokenService>();
+			services.AddScoped<ITokenService, TokenService>();
+			services.AddScoped<IAccountService, AccountService>();
+			services.AddScoped<IProfileService, ProfileService>();
 
 			return services;
 		}
