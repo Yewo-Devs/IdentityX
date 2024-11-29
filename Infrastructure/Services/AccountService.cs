@@ -1,255 +1,238 @@
+using IdentityX.Application.DTO.Users;
+using IdentityX.Application.DTO.Validation;
+using IdentityX.Application.Extensions;
+using IdentityX.Application.Interfaces;
+using IdentityX.Core.Entities;
+using System.Security.Cryptography;
+using System.Text;
+using System.Web;
+
 namespace IdentityX.Infrastructure.Services
 {
-    public class AccountService: IAccountService
+	public class AccountService : IAccountService
 	{
-		private readonly ITokenService _tokenService;
+		private readonly string Application_Domain = Environment.GetEnvironmentVariable("Application_Domain");
 
-		public AccountService(ITokenService tokenService)
+		private readonly ITokenService _tokenService;
+		private readonly IDataService _dataService;
+		private readonly IEmailService _emailService;
+
+		public AccountService(ITokenService tokenService, IDataService dataService,
+			IEmailService emailService)
 		{
 			_tokenService = tokenService;
+			_dataService = dataService;
+			_emailService = emailService;
 		}
 
 		public async Task<ResultObjectDto<UserDto>> Login(LoginDto loginDto)
 		{
-			IEnumerable<AppUser> appUsers = await GetAppUsers();
-
-			//Email Lookup
-			AppUser user = appUsers
-				.FirstOrDefault(user => user.Email.ToLower() == loginDto.Email.ToLower());
-
-			//Username Lookup
+			var user = await FindUserByEmailOrUsername(loginDto.Email, loginDto.Username);
 			if (user == null)
-				user = appUsers
-					.FirstOrDefault(user => user.Username.ToLower() == loginDto.Username.ToLower());
-
-			if (user == null)
-				return new ResultObjectDto<UserDto>() { Error = "Account doesn't exist" };
+				return new ResultObjectDto<UserDto> { Error = "Account doesn't exist" };
 
 			if (!user.AccountEnabled)
-				return new ResultObjectDto<UserDto>() { Error = "Your account has been disabled" };
+				return new ResultObjectDto<UserDto> { Error = "Your account has been disabled" };
 
-			using var hmac = new HMACSHA512(user.PasswordSalt);
-			Byte[] computedHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(loginDto.Password));
-
-			for (int i = 0; i < computedHash.Length; i++)
-			{
-				if (computedHash[i] != user.PasswordHash[i])
-					return new ResultObjectDto<UserDto>() { Error = "Wrong password" };
-			}
+			if (!VerifyPassword(user, loginDto.Password))
+				return new ResultObjectDto<UserDto> { Error = "Wrong password" };
 
 			if (!user.AccountVerified)
 			{
-				//Generate verification Token
-				await GenerateVerificationToken(user.ID);
-
-				return new ResultObjectDto<UserDto>() { Error = $"?accountId={user.ID}" };
+				await GenerateVerificationToken(user.Id);
+				return new ResultObjectDto<UserDto> { Error = $"?accountId={user.Id}" };
 			}
 
-			return new ResultObjectDto<UserDto>() { Result = await GetUserDto(user) };
+			return new ResultObjectDto<UserDto> { Result = GetUserDto(user) };
+		}
+
+		public async Task<ResultObjectDto<string>> InitiatePasswordReset(string email, string username)
+		{
+			var user = await FindUserByEmailOrUsername(email, username);
+			if (user == null)
+				return new ResultObjectDto<string> { Error = "Account doesn't exist" };
+
+			var resetToken = GenerateToken();
+			await _dataService.UpdateData("Account", $"{user.Id}/PasswordResetToken", resetToken);
+
+			var urlEncodedToken = HttpUtility.UrlEncode(resetToken);
+			var url = $"{Application_Domain}/reset-password?accountId={user.Id}&token={urlEncodedToken}";
+
+			await _emailService.SendPasswordResetLink(user.Email, url);
+
+			return new ResultObjectDto<string> { Result = "Password reset link sent" };
+		}
+
+		public async Task<ResultObjectDto<string>> ResetPassword(string accountId, string token, string newPassword)
+		{
+			var user = await GetUserFromId(accountId);
+			if (user == null)
+				return new ResultObjectDto<string> { Error = "Account doesn't exist" };
+
+			if (token != user.PasswordResetToken)
+				return new ResultObjectDto<string> { Error = "Invalid token" };
+
+			using var hmac = new HMACSHA512();
+			user.PasswordHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(newPassword));
+			user.PasswordSalt = hmac.Key;
+			user.PasswordResetToken = string.Empty;
+			await _dataService.UpdateData("Account", user.Id, user);
+
+			return new ResultObjectDto<string> { Result = "Password reset successful" };
 		}
 
 		public async Task<ResultObjectDto<UserDto>> SocialLogin(SocialLoginDto socialLoginDto)
 		{
-			//if account exists login
-			IEnumerable<AppUser> appUsers = await GetAppUsers();
-
-			AppUser account = appUsers.FirstOrDefault(user => user.ID.ToLower() == socialLoginDto.Id);
-
-			if (account != null)
+			var user = await GetUserFromId(socialLoginDto.Id);
+			if (user != null)
 			{
-				AppUser user = account;
-
 				if (!user.AccountEnabled)
-					return new ResultObjectDto<UserDto>() { Error = "Your account has been disabled" };
+					return new ResultObjectDto<UserDto> { Error = "Your account has been disabled" };
 
-				return new ResultObjectDto<UserDto>() { Result = await GetUserDto(user) };
+				return new ResultObjectDto<UserDto> { Result = GetUserDto(user) };
 			}
 
-			//if account doesn't exist create an account
-			TextInfo textInfo = new CultureInfo("en-US", false).TextInfo;
+			var newUser = RegisterUser(socialLoginDto, true);
+			await _dataService.StoreData("Account", newUser, newUser.Id);
 
-			AppUser newUser = socialLoginDto.Map<AppUser, SocialLoginDto>();
-
-			newUser.Permissions = new List<string>() { "External" };
-
-			using (var hmac = new HMACSHA512())
-			{
-				newUser.PasswordHash = hmac
-					.ComputeHash(Encoding.UTF8.GetBytes(DateTime.UtcNow.Ticks.ToString()));
-				newUser.PasswordSalt = hmac.Key;
-			}
-
-			newUser.FirstName = textInfo.ToTitleCase(socialLoginDto.FirstName.ToLower());
-			newUser.LastName = textInfo.ToTitleCase(socialLoginDto.LastName.ToLower());
-			newUser.DateTimeCreated = DateTime.UtcNow;
-			newUser.ID = socialLoginDto.Id;
-			newUser.AccountVerified = true;
-
-			await _firebaseService.StoreData(FirebaseDataNodes.Account, newUser, newUser.ID);
-
-			return new ResultObjectDto<UserDto>() { Result = await GetUserDto(newUser) };
+			return new ResultObjectDto<UserDto> { Result = GetUserDto(newUser) };
 		}
 
-		public async Task<ResultObject<UserDto>> Register(RegisterDto registerDto)
+		public async Task<ResultObjectDto<UserDto>> Register(RegisterDto registerDto, bool requireEmailVerification = false)
 		{
-			if (await UserExists(registerDto.Email))
-				return new ResultObject<UserDto>() { Error = "Account already exists." };
+			var existingUser = await FindUserByEmail(registerDto.Email);
+			if (existingUser != null)
+				return new ResultObjectDto<UserDto> { Error = "Account already exists." };
 
-			TextInfo textInfo = new CultureInfo("en-US", false).TextInfo;
+			var newUser = RegisterUser(registerDto, !requireEmailVerification);
+			await _dataService.StoreData("Account", newUser, newUser.Id);
 
-			AppUser user = registerDto.Map<AppUser, RegisterDto>();
+			if (requireEmailVerification)
+				await GenerateVerificationToken(newUser.Id);
 
-			using (var hmac = new HMACSHA512())
-			{
-				user.PasswordHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(registerDto.Password));
-				user.PasswordSalt = hmac.Key;
-			}
+			return new ResultObjectDto<UserDto> { Error = $"?accountId={newUser.Id}" };
+		}
 
-			user.FirstName = textInfo.ToTitleCase(registerDto.Firstname.ToLower());
-			user.LastName = textInfo.ToTitleCase(registerDto.Lastname.ToLower());
-			user.ID = DateTime.UtcNow.Ticks.ToString();
-			user.DateTimeCreated = DateTime.UtcNow;
+		public async Task<ResultObjectDto<UserDto>> EditUser(EditUserDto editUserDto)
+		{
+			var user = await GetUserFromId(editUserDto.Id);
+			if (user == null)
+				return new ResultObjectDto<UserDto> { Error = "User doesn't exist" };
 
-			await _firebaseService.StoreData(FirebaseDataNodes.Account, user, user.ID);
+			UpdateUserDetails(user, editUserDto);
+			await _dataService.UpdateData("Account", user.Id, user);
 
-			//Generate verification Token
-			await GenerateVerificationToken(user.ID);
-
-			return new ResultObject<UserDto>() { Error = $"?accountId={user.ID}" };
+			return new ResultObjectDto<UserDto> { Result = GetUserDto(user) };
 		}
 
 		public async Task GenerateVerificationToken(string accountId)
 		{
-			AppUser user = await GetUserFromId(accountId);
-
+			var user = await GetUserFromId(accountId);
 			if (user == null)
 				throw new Exception("Account Doesn't Exist");
 
-			string characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+			var token = GenerateToken();
+			await _dataService.UpdateData("Account", $"{user.Id}/AccountVerificationToken", token);
 
-			foreach (var item in characters)
-			{
-				characters += item.ToString().ToLower();
-			}
-
-			characters += "1234567890";
-
-			string token = new string(Enumerable
-						.Range(0, 256)
-						.Select(num => characters[new Random().Next() % characters.Length])
-						.ToArray());
-
-			token = Convert.ToBase64String(Encoding.UTF8.GetBytes(token));
-
-			await _firebaseService
-				.UpdateData(FirebaseDataNodes.Account,
-				$"{user.ID}/AccountVerificationToken", token);
-
-			//Send Email            
-
-			string UrlEncodedToken = HttpUtility.UrlEncode(token);
-
-			string url = $"{Application_Domain}/api/account/verify?accountId={user.ID}&token={UrlEncodedToken}";
+			var urlEncodedToken = HttpUtility.UrlEncode(token);
+			var url = $"{Application_Domain}/api/account/verify?accountId={user.Id}&token={urlEncodedToken}";
 
 			await _emailService.SendAccountActivation(url, user);
 		}
 
-		public async Task<IEnumerable<AppUser>> GetAccounts()
+		public async Task<ResultObjectDto<string>> VerifyAccount(string accountId, string token)
 		{
-			return await _firebaseService.GetCollectionOfType<AppUser>(FirebaseDataNodes.Account);
-		}
-
-		public async Task<ResultObject<UserDto>> EditUser(EditUserDto editUserDto)
-		{
-			AppUser user = (await GetAppUsers())
-				.FirstOrDefault(user => user.ID == editUserDto.ID);
-
+			var user = await GetUserFromId(accountId);
 			if (user == null)
-				return new ResultObject<UserDto>() { Error = "User doesn't exist" };
-
-			//Edit user
-			user.AccountEnabled = editUserDto.AccountEnabled;
-			user.Email = editUserDto.Email;
-			user.FirstName = editUserDto.FirstName;
-			user.LastName = editUserDto.LastName;
-
-			if (!string.IsNullOrEmpty(editUserDto.PhotoUrl))
-				user.PhotoUrl = await _firebaseStorageService
-					.StoreProfilePhoto(editUserDto.PhotoUrl, user.ID, "Profile Photo");
-
-			user.Permissions = editUserDto.Permissions;
-
-			await _firebaseService.UpdateData(FirebaseDataNodes.Account, editUserDto.ID, user);
-
-			return new ResultObject<UserDto>() { Result = await GetUserDto(user) };
-		}
-
-		public async Task<AppUser> GetUserFromId(string accountId)
-		{
-			return await _firebaseService.GetInstanceOfType<AppUser>(FirebaseDataNodes.Account, accountId);
-		}
-
-		public async Task<ResultObject<string>> VerifyAccount(string accountId, string token)
-		{
-			AppUser user = await GetUserFromId(accountId);
-
-			if (user == null)
-				return new ResultObject<string>()
-				{
-					Error = "Account doesn't exist",
-					Result = $"{Application_Domain}/verification-result?result=fail"
-				};
+				return new ResultObjectDto<string> { Error = "Account doesn't exist", Result = $"{Application_Domain}/verification-result?result=fail" };
 
 			if (token != user.AccountVerificationToken)
-				return new ResultObject<string>()
-				{
-					Error = "Invalid token",
-					Result = $"{Application_Domain}/verification-result?result=fail"
-				};
+				return new ResultObjectDto<string> { Error = "Invalid token", Result = $"{Application_Domain}/verification-result?result=fail" };
 
-			user.AccountVerificationToken = "";
+			user.AccountVerificationToken = string.Empty;
 			user.AccountVerified = true;
 
-			await _firebaseService.UpdateData(FirebaseDataNodes.Account, user.ID, user);
+			await _dataService.UpdateData("Account", user.Id, user);
 
-			return new ResultObject<string>()
-			{
-				Result = $"{Application_Domain}/verification-result?result=success"
-			};
+			return new ResultObjectDto<string> { Result = $"{Application_Domain}/verification-result?result=success" };
 		}
 
 		public async Task PurgeSpamAccounts()
 		{
-			IEnumerable<AppUser> users = await GetAccounts();
-
-			foreach (AppUser user in users)
+			var users = await GetAccounts();
+			foreach (var user in users)
 			{
-				if (!user.AccountVerified)
+				if (!user.AccountVerified && (DateTime.UtcNow - user.CreatedAt).TotalHours >= 96)
 				{
-					TimeSpan timeSpan = DateTime.UtcNow - user.DateTimeCreated;
-
-					if (timeSpan.TotalHours >= 96)
-					{
-						await _firebaseService.DeleteData(FirebaseDataNodes.Account, user.ID);
-					}
+					await _dataService.DeleteData("Account", user.Id);
 				}
 			}
 		}
 
-		private async Task<UserDto> GetUserDto(AppUser appUser)
+		private async Task<AppUser> FindUserByEmailOrUsername(string email, string username)
 		{
-			UserDto userDto = appUser.Map<UserDto, AppUser>();
+			var users = await GetAccounts();
+			return users.FirstOrDefault(user => user.Email.Equals(email, StringComparison.OrdinalIgnoreCase) || user.Username.Equals(username, StringComparison.OrdinalIgnoreCase));
+		}
 
-			userDto.Token = _tokenService.CreateToken(appUser);
+		private async Task<AppUser> FindUserByEmail(string email)
+		{
+			var users = await GetAccounts();
+			return users.FirstOrDefault(user => user.Email.Equals(email, StringComparison.OrdinalIgnoreCase));
+		}
 
-			var package = await _packageService.GetPackage(appUser.ID);
+		private bool VerifyPassword(AppUser user, string password)
+		{
+			using var hmac = new HMACSHA512(user.PasswordSalt);
+			var computedHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
+			return computedHash.SequenceEqual(user.PasswordHash);
+		}
 
-			if (package == null)
-				return userDto;
+		private void UpdateUserDetails(AppUser user, EditUserDto editUserDto)
+		{
+			user.AccountEnabled = editUserDto.AccountEnabled;
+			user.Email = editUserDto.Email;
+			user.Role = editUserDto.Role;
+			user.Permissions = editUserDto.Permissions;
+		}
 
-			userDto.Package = package.Name;
+		private string GenerateToken()
+		{
+			const string characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890";
+			var token = new string(Enumerable.Range(0, 256).Select(_ => characters[RandomNumberGenerator.GetInt32(characters.Length)]).ToArray());
+			return Convert.ToBase64String(Encoding.UTF8.GetBytes(token));
+		}
 
+		private AppUser RegisterUser(BaseUserManagementDto userManagementDto, bool verified = false)
+		{
+			var user = userManagementDto.Map<AppUser, BaseUserManagementDto>();
+			using var hmac = new HMACSHA512();
+			user.PasswordHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(userManagementDto is RegisterDto registerDto ? registerDto.Password : DateTime.UtcNow.Ticks.ToString()));
+			user.PasswordSalt = hmac.Key;
+			user.CreatedAt = DateTime.UtcNow;
+			user.UpdatedAt = DateTime.UtcNow;
+			user.Id = userManagementDto is SocialLoginDto socialLoginDto ? socialLoginDto.Id : DateTime.UtcNow.Ticks.ToString();
+			user.AccountVerified = verified;
+			return user;
+		}
+
+		private UserDto GetUserDto(AppUser appUser)
+		{
+			var userDto = appUser.Map<UserDto, AppUser>();
+			var tokens = _tokenService.GenerateSessionTokens(appUser);
+			userDto.Token = tokens.AccessToken;
+			userDto.RefreshToken = tokens.RefreshToken;
 			return userDto;
+		}
+
+		public async Task<IEnumerable<AppUser>> GetAccounts()
+		{
+			return await _dataService.GetCollectionOfType<AppUser>("Account");
+		}
+
+		public async Task<AppUser> GetUserFromId(string accountId)
+		{
+			return await _dataService.GetInstanceOfType<AppUser>("Account", accountId);
 		}
 	}
 }

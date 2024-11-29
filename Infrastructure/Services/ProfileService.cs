@@ -1,25 +1,46 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using IdentityX.Core.Entities;
+using IdentityX.Application.DTO.Users;
+using IdentityX.Application.Interfaces;
 
 namespace IdentityX.Infrastructure.Services
 {
-    public class ProfileService
-    {
-        public Task<AppUser> GetUserProfileAsync(string userId)
-        {
-            // Retrieve user profile from the database
-            // This is just a placeholder
-            return Task.FromResult(new AppUser { Id = userId });
-        }
+    public class ProfileService: IProfileService
+	{
+		private readonly IDataService _dataService;
 
-        public Task UpdateUserProfileAsync(AppUser user)
-        {
-            // Update user profile in the database
-            // This is just a placeholder
-            return Task.CompletedTask;
-        }
-    }
+		public ProfileService(IDataService dataService)
+		{
+			_dataService = dataService;
+		}
+
+		public async Task CreateUserProfile(CreateUserProfileDto createUserProfileDto)
+		{
+			await _dataService
+				.StoreData("Profile", createUserProfileDto, createUserProfileDto.UserId);
+		}
+
+		public async Task DeleteUserProfile(string userId)
+		{
+			await _dataService
+				.DeleteData("Profile", userId);
+		}
+
+		public async Task<ProfileDto> GetUserProfile(string userId)
+		{
+			return await _dataService
+				.GetInstanceOfType<ProfileDto>("Profile", userId);
+		}
+
+		public async Task<IEnumerable<ProfileDto>> GetUserProfiles()
+		{
+			var profiles = await _dataService.GetCollectionOfType<ProfileDto>("Profile");
+
+			return profiles;
+		}
+
+		public async Task UpdateUserProfile(EditProfileDto editProfileDto)
+		{
+			await _dataService
+				.UpdateData("Profile", editProfileDto.UserId, editProfileDto);
+		}
+	}
 }
