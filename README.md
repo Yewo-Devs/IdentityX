@@ -27,7 +27,15 @@ public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
 {
     app.UseIdentityX();
 }
-    
+
+3. Set the following environment variables:
+    - Token_Issuer
+    - Token_Audience
+    - Token_Key
+    - Application_Domain
+
+4. Implement the service definitions for IEmailService & IDataService
+
 ### Usage
 
 #### User Authentication
