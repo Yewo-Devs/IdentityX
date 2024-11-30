@@ -10,7 +10,7 @@ namespace IdentityX.Application.Extensions
 {
 	public static class ServiceExtensions
 	{
-		public static IServiceCollection AddJwtAuthentication(this IServiceCollection services, IConfiguration configuration)
+		public static IServiceCollection AddIdentityXAuthentication(this IServiceCollection services, IConfiguration configuration)
 		{
 			services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 				.AddJwtBearer(options =>
@@ -28,14 +28,26 @@ namespace IdentityX.Application.Extensions
 				});
 
 			services.AddScoped<ITokenService, TokenService>();
+
+			return services;
+		}
+
+		public static IServiceCollection AddIdentityXUserManagement(this IServiceCollection services)
+		{
 			services.AddScoped<IAccountService, AccountService>();
 			services.AddScoped<IProfileService, ProfileService>();
+
+			return services;
+		}
+
+		public static IServiceCollection AddIdentityXMultiFactorAuthentication(this IServiceCollection services)
+		{
 			services.AddScoped<IMultiFactorAuthService, MultiFactorAuthService>();
 
 			return services;
 		}
 
-		public static IServiceCollection AddRoleBasedAuthorization(this IServiceCollection services)
+		public static IServiceCollection AddIdentityXRoleBasedAuthorization(this IServiceCollection services)
 		{
 			services.AddAuthorization(options =>
 			{

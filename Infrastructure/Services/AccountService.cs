@@ -63,8 +63,12 @@ namespace IdentityX.Infrastructure.Services
 			return new ResultObjectDto<string> { Result = "Password reset link sent" };
 		}
 
-		public async Task<ResultObjectDto<string>> ResetPassword(string accountId, string token, string newPassword)
+		public async Task<ResultObjectDto<string>> ResetPassword(PasswordResetDto passwordResetDto)
 		{
+			string accountId = passwordResetDto.AccountId, 
+				token = passwordResetDto.Token, 
+				newPassword = passwordResetDto.Password;
+
 			var user = await GetUserFromId(accountId);
 			if (user == null)
 				return new ResultObjectDto<string> { Error = "Account doesn't exist" };
@@ -225,7 +229,14 @@ namespace IdentityX.Infrastructure.Services
 			return userDto;
 		}
 
-		public async Task<IEnumerable<AppUser>> GetAccounts()
+		public async Task<IEnumerable<UserDto>> GetUsers()
+		{
+			var accounts = await _dataService.GetCollectionOfType<UserDto>("Account");
+
+			return accounts;
+		}
+
+		private async Task<IEnumerable<AppUser>> GetAccounts()
 		{
 			return await _dataService.GetCollectionOfType<AppUser>("Account");
 		}

@@ -14,6 +14,11 @@ namespace IdentityX.Infrastructure.Services
 
 		public async Task CreateUserProfile(CreateUserProfileDto createUserProfileDto)
 		{
+			var profile =  await GetUserProfile(createUserProfileDto.UserId);
+
+			if (profile != null)
+				return;
+
 			await _dataService
 				.StoreData("Profile", createUserProfileDto, createUserProfileDto.UserId);
 		}

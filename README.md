@@ -21,14 +21,8 @@ dotnet add package IdentityX
 ### Configuration
 
 1. Add the IdentityX services to your `Startup.cs`:
-2. Configure the middleware in your `Startup.cs`:
 
-public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
-{
-    app.UseIdentityX();
-}
-
-3. Set the following environment variables:
+2. Set the following environment variables:
     - Token_Issuer
     - Token_Audience
     - Token_Key
