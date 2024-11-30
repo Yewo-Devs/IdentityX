@@ -211,7 +211,7 @@ namespace IdentityX.Infrastructure.Services
 			user.PasswordSalt = hmac.Key;
 			user.CreatedAt = DateTime.UtcNow;
 			user.UpdatedAt = DateTime.UtcNow;
-			user.Id = userManagementDto is SocialLoginDto socialLoginDto ? socialLoginDto.Id : DateTime.UtcNow.Ticks.ToString();
+			user.Id = userManagementDto is SocialLoginDto socialLoginDto ? socialLoginDto.Id : Guid.NewGuid().ToString();
 			user.AccountVerified = verified;
 			return user;
 		}

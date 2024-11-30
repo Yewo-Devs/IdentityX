@@ -4,7 +4,22 @@
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <Title>IdentityX</Title>
+    <Authors>Yewo Theu</Authors>
+    <Description>IdentityX is a powerful and flexible identity management package for .NET 9 applications. It provides a comprehensive set of features to manage user authentication, authorization, and user profiles with ease.</Description>
+    <PackageProjectUrl>https://github.com/Yewo-Devs/IdentityX</PackageProjectUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/Yewo-Devs/IdentityX</RepositoryUrl>
+    <PackageTags>Auth, IAM, Identity and Access Management, User Management</PackageTags>
+    <PackageIcon>IdentityX Logo.png</PackageIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\..\..\Desktop\IdentityX Logo.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.0" />
@@ -12,6 +27,13 @@
     <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.2.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.2.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
   </ItemGroup>
 
 </Project>
