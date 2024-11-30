@@ -30,6 +30,7 @@ namespace IdentityX.Application.Extensions
 			services.AddScoped<ITokenService, TokenService>();
 			services.AddScoped<IAccountService, AccountService>();
 			services.AddScoped<IProfileService, ProfileService>();
+			services.AddScoped<IMultiFactorAuthService, MultiFactorAuthService>();
 
 			return services;
 		}
