@@ -12,16 +12,9 @@
     <RepositoryUrl>https://github.com/Yewo-Devs/IdentityX</RepositoryUrl>
     <PackageTags>Auth, IAM, Identity and Access Management, User Management</PackageTags>
     <PackageIcon>IdentityX Logo.png</PackageIcon>
-    <Version>1.1.0</Version>
-    <PackageReleaseNotes>Added PasswordResetDto</PackageReleaseNotes>
+    <Version>1.2.0</Version>
+    <PackageReleaseNotes>Added Init code for custom service implementations</PackageReleaseNotes>
   </PropertyGroup>
-
-  <ItemGroup>
-    <None Include="..\..\..\..\Desktop\IdentityX Logo.png">
-      <Pack>True</Pack>
-      <PackagePath>\</PackagePath>
-    </None>
-  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.0" />
@@ -32,6 +25,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="IdentityX Logo.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
     <None Update="README.md">
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
