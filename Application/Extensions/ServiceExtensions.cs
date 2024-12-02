@@ -32,8 +32,11 @@ namespace IdentityX.Application.Extensions
 			return services;
 		}
 
-		public static IServiceCollection AddIdentityXUserManagement(this IServiceCollection services)
+		public static IServiceCollection AddIdentityXUserManagement<EmailServiceImplementation, DataServiceImplementation>(this IServiceCollection services)
 		{
+			services.AddScoped(typeof(IEmailService), typeof(EmailServiceImplementation));
+			services.AddScoped(typeof(IDataService), typeof(DataServiceImplementation));
+  
 			services.AddScoped<IAccountService, AccountService>();
 			services.AddScoped<IProfileService, ProfileService>();
 
