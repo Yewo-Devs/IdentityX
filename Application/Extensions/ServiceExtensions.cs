@@ -36,7 +36,7 @@ namespace IdentityX.Application.Extensions
 		{
 			services.AddScoped(typeof(IEmailService), typeof(EmailServiceImplementation));
 			services.AddScoped(typeof(IDataService), typeof(DataServiceImplementation));
-
+  
 			services.AddScoped<IAccountService, AccountService>();
 			services.AddScoped<IProfileService, ProfileService>();
 

@@ -12,6 +12,8 @@
     <RepositoryUrl>https://github.com/Yewo-Devs/IdentityX</RepositoryUrl>
     <PackageTags>Auth, IAM, Identity and Access Management, User Management</PackageTags>
     <PackageIcon>IdentityX Logo.png</PackageIcon>
+    <Version>1.1.0</Version>
+    <PackageReleaseNotes>Added PasswordResetDto</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
