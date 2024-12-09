@@ -217,6 +217,7 @@ namespace IdentityX.Infrastructure.Services
 			user.UpdatedAt = DateTime.UtcNow;
 			user.Id = userManagementDto is SocialLoginDto socialLoginDto ? socialLoginDto.Id : Guid.NewGuid().ToString();
 			user.AccountVerified = verified;
+			user.AccountEnabled = true;
 			return user;
 		}
 

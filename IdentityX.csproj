@@ -12,8 +12,8 @@
     <RepositoryUrl>https://github.com/Yewo-Devs/IdentityX</RepositoryUrl>
     <PackageTags>Auth, IAM, Identity and Access Management, User Management</PackageTags>
     <PackageIcon>IdentityX Logo.png</PackageIcon>
-    <Version>1.2.1</Version>
-    <PackageReleaseNotes>Added keepLoggedIn functionality</PackageReleaseNotes>
+    <Version>1.2.2</Version>
+    <PackageReleaseNotes>Fixed accounts disabled by default</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
