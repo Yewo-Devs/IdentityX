@@ -65,19 +65,28 @@ namespace IdentityX.Infrastructure.Services
 			return new JwtSecurityTokenHandler().WriteToken(token);
 		}
 
-		public (string AccessToken, string RefreshToken) GenerateSessionTokens(AppUser appUser)
+		public (string AccessToken, string RefreshToken) GenerateSessionTokens(AppUser appUser, bool keepLoggedIn = false)
 		{
 			int accessTokenExpiryInMinutes, refreshTokenExpiryInDays;
 
-			if (appUser.Role == "Admin")
+			if (keepLoggedIn)
 			{
-				accessTokenExpiryInMinutes = 15;
-				refreshTokenExpiryInDays = 3;
+				accessTokenExpiryInMinutes = 60 * 24 * 7; // 7 days
+				refreshTokenExpiryInDays = 30; // 30 days
 			}
 			else
 			{
-				accessTokenExpiryInMinutes = 30;
-				refreshTokenExpiryInDays = 7;
+
+				if (appUser.Role == "Admin")
+				{
+					accessTokenExpiryInMinutes = 15;
+					refreshTokenExpiryInDays = 3;
+				}
+				else
+				{
+					accessTokenExpiryInMinutes = 30;
+					refreshTokenExpiryInDays = 7;
+				}
 			}
 
 			var accessToken = GenerateToken(appUser, accessTokenExpiryInMinutes);

@@ -6,6 +6,6 @@ namespace IdentityX.Application.Interfaces
 	{
 		(string AccessToken, string RefreshToken) RefreshSessionToken(string refreshToken);
 
-		(string AccessToken, string RefreshToken) GenerateSessionTokens(AppUser appUser);
+		(string AccessToken, string RefreshToken) GenerateSessionTokens(AppUser appUser, bool keepLoggedIn = false);
 	}
 }

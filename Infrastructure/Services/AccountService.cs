@@ -43,7 +43,7 @@ namespace IdentityX.Infrastructure.Services
 				return new ResultObjectDto<UserDto> { Error = $"?accountId={user.Id}" };
 			}
 
-			return new ResultObjectDto<UserDto> { Result = GetUserDto(user) };
+			return new ResultObjectDto<UserDto> { Result = GetUserDto(user, loginDto.KeepLoggedIn) };
 		}
 
 		public async Task<ResultObjectDto<string>> InitiatePasswordReset(string email, string username)
@@ -99,7 +99,7 @@ namespace IdentityX.Infrastructure.Services
 			var newUser = RegisterUser(socialLoginDto, true);
 			await _dataService.StoreData("Account", newUser, newUser.Id);
 
-			return new ResultObjectDto<UserDto> { Result = GetUserDto(newUser) };
+			return new ResultObjectDto<UserDto> { Result = GetUserDto(newUser, socialLoginDto.KeepLoggedIn) };
 		}
 
 		public async Task<ResultObjectDto<UserDto>> Register(RegisterDto registerDto, bool requireEmailVerification = false)
@@ -220,10 +220,10 @@ namespace IdentityX.Infrastructure.Services
 			return user;
 		}
 
-		private UserDto GetUserDto(AppUser appUser)
+		private UserDto GetUserDto(AppUser appUser, bool keepLoggedIn = false)
 		{
 			var userDto = appUser.Map<UserDto, AppUser>();
-			var tokens = _tokenService.GenerateSessionTokens(appUser);
+			var tokens = _tokenService.GenerateSessionTokens(appUser, keepLoggedIn);
 			userDto.Token = tokens.AccessToken;
 			userDto.RefreshToken = tokens.RefreshToken;
 			return userDto;
