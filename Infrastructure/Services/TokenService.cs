@@ -95,7 +95,7 @@ namespace IdentityX.Infrastructure.Services
 			return (accessToken, refreshToken);
 		}
 
-		public (string AccessToken, string RefreshToken) RefreshSessionToken(string refreshToken)
+		public (string AccessToken, string RefreshToken) RefreshSessionToken(string refreshToken, bool keepLoggedIn = false)
 		{
 			var tokenHandler = new JwtSecurityTokenHandler();
 			var tokenValidationParameters = new TokenValidationParameters
@@ -122,7 +122,7 @@ namespace IdentityX.Infrastructure.Services
 					};
 
 					// Generate a new tokens with the same claims
-					return GenerateSessionTokens(appUser); 
+					return GenerateSessionTokens(appUser, keepLoggedIn); 
 				}
 				else
 				{

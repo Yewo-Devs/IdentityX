@@ -7,6 +7,8 @@ namespace IdentityX.Application.Interfaces
 	public interface IAccountService
 	{
 		Task<ResultObjectDto<UserDto>> Login(LoginDto loginDto);
+
+		Task<ResultObjectDto<UserDto>> RefreshAuth(RefreshAuthDto refreshAuthDto);
 		Task<ResultObjectDto<UserDto>> SocialLogin(SocialLoginDto socialLoginDto);
 		Task<ResultObjectDto<UserDto>> Register(RegisterDto registerDto, bool requireEmailVerification = false);
 		Task<ResultObjectDto<UserDto>> EditUser(EditUserDto editUserDto);

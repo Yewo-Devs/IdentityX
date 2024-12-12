@@ -46,6 +46,32 @@ namespace IdentityX.Infrastructure.Services
 			return new ResultObjectDto<UserDto> { Result = GetUserDto(user, loginDto.KeepLoggedIn) };
 		}
 
+		public async Task<ResultObjectDto<UserDto>> RefreshAuth(RefreshAuthDto refreshAuthDto)
+		{
+			var user = await GetUserFromId(refreshAuthDto.AccountId);
+
+			if (user == null)
+				return new ResultObjectDto<UserDto> { Error = "Account doesn't exist" };
+
+			if (!user.AccountEnabled)
+				return new ResultObjectDto<UserDto> { Error = "Your account has been disabled" };
+
+			if (!user.AccountVerified)
+			{
+				await GenerateVerificationToken(user.Id);
+				return new ResultObjectDto<UserDto> { Error = $"?accountId={user.Id}" };
+			}
+
+			var tokens = _tokenService.RefreshSessionToken(refreshAuthDto.RefreshToken);
+
+			var userDto = GetUserDto(user, refreshAuthDto.KeepLoggedIn);
+
+			userDto.RefreshToken = tokens.RefreshToken;
+			userDto.Token = tokens.AccessToken;
+
+			return new ResultObjectDto<UserDto> { Result = userDto };
+		}
+
 		public async Task<ResultObjectDto<string>> InitiatePasswordReset(string email, string username)
 		{
 			var user = await FindUserByEmailOrUsername(email, username);
@@ -53,7 +79,10 @@ namespace IdentityX.Infrastructure.Services
 				return new ResultObjectDto<string> { Error = "Account doesn't exist" };
 
 			var resetToken = GenerateToken();
-			await _dataService.UpdateData("Account", $"{user.Id}/PasswordResetToken", resetToken);
+
+			user.PasswordResetToken = resetToken;
+
+			await _dataService.UpdateData("Account", $"{user.Id}", user);
 
 			var urlEncodedToken = HttpUtility.UrlEncode(resetToken);
 			var url = $"{Application_Domain}/reset-password?accountId={user.Id}&token={urlEncodedToken}";
@@ -93,10 +122,10 @@ namespace IdentityX.Infrastructure.Services
 				if (!user.AccountEnabled)
 					return new ResultObjectDto<UserDto> { Error = "Your account has been disabled" };
 
-				return new ResultObjectDto<UserDto> { Result = GetUserDto(user) };
+				return new ResultObjectDto<UserDto> { Result = GetUserDto(user, socialLoginDto.KeepLoggedIn) };
 			}
 
-			var newUser = RegisterUser(socialLoginDto, true);
+			var newUser = RegisterUser<SocialLoginDto>(socialLoginDto, true);
 			await _dataService.StoreData("Account", newUser, newUser.Id);
 
 			return new ResultObjectDto<UserDto> { Result = GetUserDto(newUser, socialLoginDto.KeepLoggedIn) };
@@ -108,7 +137,7 @@ namespace IdentityX.Infrastructure.Services
 			if (existingUser != null)
 				return new ResultObjectDto<UserDto> { Error = "Account already exists." };
 
-			var newUser = RegisterUser(registerDto, !requireEmailVerification);
+			var newUser = RegisterUser<RegisterDto>(registerDto, !requireEmailVerification);
 			await _dataService.StoreData("Account", newUser, newUser.Id);
 
 			if (requireEmailVerification)
@@ -175,14 +204,23 @@ namespace IdentityX.Infrastructure.Services
 
 		private async Task<AppUser> FindUserByEmailOrUsername(string email, string username)
 		{
+			if (string.IsNullOrEmpty(email) && string.IsNullOrEmpty(username))
+				return null;
+
 			var users = await GetAccounts();
-			return users.FirstOrDefault(user => user.Email.Equals(email, StringComparison.OrdinalIgnoreCase) || user.Username.Equals(username, StringComparison.OrdinalIgnoreCase));
+			return users.FirstOrDefault(user =>
+				(!string.IsNullOrEmpty(user.Email) && user.Email.Equals(email, StringComparison.OrdinalIgnoreCase)) ||
+				(!string.IsNullOrEmpty(user.Username) && user.Username.Equals(username, StringComparison.OrdinalIgnoreCase)));
 		}
 
 		private async Task<AppUser> FindUserByEmail(string email)
 		{
+			if (string.IsNullOrEmpty(email))
+				return null;
+
 			var users = await GetAccounts();
-			return users.FirstOrDefault(user => user.Email.Equals(email, StringComparison.OrdinalIgnoreCase));
+			return users.FirstOrDefault(user =>
+				!string.IsNullOrEmpty(user.Email) && user.Email.Equals(email, StringComparison.OrdinalIgnoreCase));
 		}
 
 		private bool VerifyPassword(AppUser user, string password)
@@ -207,9 +245,10 @@ namespace IdentityX.Infrastructure.Services
 			return Convert.ToBase64String(Encoding.UTF8.GetBytes(token));
 		}
 
-		private AppUser RegisterUser(BaseUserManagementDto userManagementDto, bool verified = false)
+		private AppUser RegisterUser<T>(T userManagementDto, bool verified = false)
 		{
-			var user = userManagementDto.Map<AppUser, BaseUserManagementDto>();
+			var user = userManagementDto.Map<AppUser>();
+
 			using var hmac = new HMACSHA512();
 			user.PasswordHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(userManagementDto is RegisterDto registerDto ? registerDto.Password : DateTime.UtcNow.Ticks.ToString()));
 			user.PasswordSalt = hmac.Key;
@@ -223,7 +262,7 @@ namespace IdentityX.Infrastructure.Services
 
 		private UserDto GetUserDto(AppUser appUser, bool keepLoggedIn = false)
 		{
-			var userDto = appUser.Map<UserDto, AppUser>();
+			var userDto = appUser.Map<UserDto>();
 			var tokens = _tokenService.GenerateSessionTokens(appUser, keepLoggedIn);
 			userDto.Token = tokens.AccessToken;
 			userDto.RefreshToken = tokens.RefreshToken;
