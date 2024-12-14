@@ -152,7 +152,8 @@ namespace IdentityX.Infrastructure.Services
 			if (user == null)
 				return new ResultObjectDto<UserDto> { Error = "User doesn't exist" };
 
-			UpdateUserDetails(user, editUserDto);
+			user = UpdateUserDetails(user, editUserDto);
+
 			await _dataService.UpdateData("Account", user.Id, user);
 
 			return new ResultObjectDto<UserDto> { Result = GetUserDto(user) };
@@ -230,12 +231,16 @@ namespace IdentityX.Infrastructure.Services
 			return computedHash.SequenceEqual(user.PasswordHash);
 		}
 
-		private void UpdateUserDetails(AppUser user, EditUserDto editUserDto)
+		private AppUser UpdateUserDetails(AppUser user, EditUserDto editUserDto)
 		{
 			user.AccountEnabled = editUserDto.AccountEnabled;
+			user.Username = editUserDto.Username;
+			user.UpdatedAt = DateTime.UtcNow;
 			user.Email = editUserDto.Email;
 			user.Role = editUserDto.Role;
 			user.Permissions = editUserDto.Permissions;
+
+			return user;
 		}
 
 		private string GenerateToken()
