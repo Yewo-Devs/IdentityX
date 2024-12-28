@@ -140,8 +140,10 @@ namespace IdentityX.Infrastructure.Services
 			var newUser = RegisterUser<RegisterDto>(registerDto, !requireEmailVerification);
 			await _dataService.StoreData("Account", newUser, newUser.Id);
 
-			if (requireEmailVerification)
-				await GenerateVerificationToken(newUser.Id);
+			if (!requireEmailVerification)
+				return new ResultObjectDto<UserDto> { Result = GetUserDto(newUser) };
+
+			await GenerateVerificationToken(newUser.Id);
 
 			return new ResultObjectDto<UserDto> { Error = $"?accountId={newUser.Id}" };
 		}
