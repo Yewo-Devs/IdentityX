@@ -12,7 +12,7 @@
     <RepositoryUrl>https://github.com/Yewo-Devs/IdentityX</RepositoryUrl>
     <PackageTags>Auth, IAM, Identity and Access Management, User Management</PackageTags>
     <PackageIcon>IdentityX Logo.png</PackageIcon>
-    <Version>1.2.7</Version>
+    <Version>1.2.8</Version>
     <PackageReleaseNotes>Fixed issue with updating user object</PackageReleaseNotes>
   </PropertyGroup>
 

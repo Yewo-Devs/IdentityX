@@ -95,7 +95,7 @@ namespace IdentityX.Infrastructure.Services
 			return (accessToken, refreshToken);
 		}
 
-		public (string AccessToken, string RefreshToken) RefreshSessionToken(string refreshToken, bool keepLoggedIn = false)
+		public (string AccessToken, string RefreshToken) RefreshSessionToken(string refreshToken, string accountId, bool keepLoggedIn = false)
 		{
 			var tokenHandler = new JwtSecurityTokenHandler();
 			var tokenValidationParameters = new TokenValidationParameters
@@ -117,7 +117,7 @@ namespace IdentityX.Infrastructure.Services
 				{
 					var appUser = new AppUser
 					{
-						Id = principal.FindFirstValue(JwtRegisteredClaimNames.Sub),
+						Id = accountId,
 						Role = principal.FindFirstValue(ClaimTypes.Role)
 					};
 

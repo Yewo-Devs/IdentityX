@@ -62,7 +62,8 @@ namespace IdentityX.Infrastructure.Services
 				return new ResultObjectDto<UserDto> { Error = $"?accountId={user.Id}" };
 			}
 
-			var tokens = _tokenService.RefreshSessionToken(refreshAuthDto.RefreshToken);
+			var tokens = _tokenService.RefreshSessionToken(refreshAuthDto.RefreshToken, 
+				refreshAuthDto.AccountId, refreshAuthDto.KeepLoggedIn);
 
 			var userDto = GetUserDto(user, refreshAuthDto.KeepLoggedIn);
 
