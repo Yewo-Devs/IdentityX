@@ -26,7 +26,8 @@ dotnet add package IdentityX
     - Token_Issuer
     - Token_Audience
     - Token_Key
-    - Application_Domain
+    - Api_Domain
+    - FrontEnd_Domain
 
 4. Implement the service definitions for IEmailService & IDataService
 

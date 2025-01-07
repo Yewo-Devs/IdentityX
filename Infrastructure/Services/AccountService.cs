@@ -11,7 +11,8 @@ namespace IdentityX.Infrastructure.Services
 {
 	public class AccountService : IAccountService
 	{
-		private readonly string Application_Domain = Environment.GetEnvironmentVariable("Application_Domain");
+		private readonly string _apiDomain = Environment.GetEnvironmentVariable("Api_Domain");
+		private readonly string _frontEndDomain = Environment.GetEnvironmentVariable("FrontEnd_Domain");
 
 		private readonly ITokenService _tokenService;
 		private readonly IDataService _dataService;
@@ -86,7 +87,7 @@ namespace IdentityX.Infrastructure.Services
 			await _dataService.UpdateData("Account", $"{user.Id}", user);
 
 			var urlEncodedToken = HttpUtility.UrlEncode(resetToken);
-			var url = $"{Application_Domain}/reset-password?accountId={user.Id}&token={urlEncodedToken}";
+			var url = $"{_frontEndDomain}/reset-password?accountId={user.Id}&token={urlEncodedToken}";
 
 			await _emailService.SendPasswordResetLink(user.Email, url);
 
@@ -169,10 +170,12 @@ namespace IdentityX.Infrastructure.Services
 				throw new Exception("Account Doesn't Exist");
 
 			var token = GenerateToken();
-			await _dataService.UpdateData("Account", $"{user.Id}/AccountVerificationToken", token);
+			user.AccountVerificationToken = token;
+
+			await _dataService.UpdateData("Account", $"{user.Id}", user);
 
 			var urlEncodedToken = HttpUtility.UrlEncode(token);
-			var url = $"{Application_Domain}/api/account/verify?accountId={user.Id}&token={urlEncodedToken}";
+			var url = $"{_apiDomain}/account/verify?accountId={user.Id}&token={urlEncodedToken}";
 
 			await _emailService.SendAccountActivation(url, user);
 		}
@@ -181,17 +184,17 @@ namespace IdentityX.Infrastructure.Services
 		{
 			var user = await GetUserFromId(accountId);
 			if (user == null)
-				return new ResultObjectDto<string> { Error = "Account doesn't exist", Result = $"{Application_Domain}/verification-result?result=fail" };
+				return new ResultObjectDto<string> { Error = "Account doesn't exist", Result = $"{_frontEndDomain}/verification-result?result=fail" };
 
 			if (token != user.AccountVerificationToken)
-				return new ResultObjectDto<string> { Error = "Invalid token", Result = $"{Application_Domain}/verification-result?result=fail" };
+				return new ResultObjectDto<string> { Error = "Invalid token", Result = $"{_frontEndDomain}/verification-result?result=fail" };
 
 			user.AccountVerificationToken = string.Empty;
 			user.AccountVerified = true;
 
 			await _dataService.UpdateData("Account", user.Id, user);
 
-			return new ResultObjectDto<string> { Result = $"{Application_Domain}/verification-result?result=success" };
+			return new ResultObjectDto<string> { Result = $"{_frontEndDomain}/verification-result?result=success" };
 		}
 
 		public async Task PurgeSpamAccounts()
